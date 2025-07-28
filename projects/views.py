@@ -8,7 +8,6 @@ from .serializers import ProjectSerializer, TaskSerializer
 from django.shortcuts import get_object_or_404
 
 
-
 class TaskViewSet(viewsets.ModelViewSet):
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
@@ -17,37 +16,37 @@ class TaskViewSet(viewsets.ModelViewSet):
 
 class ProjectListCreateApiView(APIView):
     def get(self, request):
-        projects = Project.objects.all()
+        projects = Project.objects.filter(members=request.user)
         serializer = ProjectSerializer(projects, many=True)
         return Response(serializer.data)
-    
+
     def post(self, request):
-        serializer = ProjectSerializer(data=request.data)
-        
+        serializer = ProjectSerializer(data=request.data, context={"request": request})
+
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
 
 class ProjectDetailApiView(APIView):
     def get_object(self, pk):
         return get_object_or_404(Project, pk=pk)
-    
+
     def get(self, pk):
         project = self.get_object(pk)
         serializer = ProjectSerializer(project)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
+
     def put(self, request, pk):
         project = self.get_object(pk)
         serializer = ProjectSerializer(project, data=request.data)
-        
+
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     def delete(self, pk):
         project = self.get_object(pk)
         project.delete()

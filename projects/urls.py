@@ -8,6 +8,6 @@ router.register(r"tasks", TaskViewSet)
 
 urlpatterns = [
     path("", include(router.urls)),
-    path("projects", ProjectListCreateApiView.as_view(), name="project-list-create"),
-    path("projects/<int:pk>", ProjectDetailApiView.as_view(), name="project-detail"),
+    path("projects/", ProjectListCreateApiView.as_view(), name="project-list-create"),
+    path("projects/<int:pk>/", ProjectDetailApiView.as_view(), name="project-detail"),
 ]

@@ -1,7 +1,7 @@
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
-from rest_framework.generics import CreateAPIView, DestroyAPIView
+from rest_framework.generics import CreateAPIView, DestroyAPIView, ListAPIView
 from rest_framework.views import APIView
 from rest_framework import viewsets
 from rest_framework import status
@@ -21,6 +21,12 @@ class UserRegisterView(CreateAPIView):
     queryset = User.objects.all()
     permission_classes = [AllowAny]
     serializer_class = UserRegisterSerializer
+
+
+class UserListView(ListAPIView):
+    queryset = User.objects.all()
+    permission_classes = [IsAdminUser]
+    serializer_class = UserSerializer
 
 
 class UserDeleteView(DestroyAPIView):
@@ -103,17 +109,66 @@ def add_user_to_project(request, pk):
             status=status.HTTP_403_FORBIDDEN,
         )
 
-    username = request.data.get("username")
+    user_id = request.data.get("user_id")
+    if not user_id:
+        return Response(
+            {"error": "User ID is required"}, status=status.HTTP_400_BAD_REQUEST
+        )
 
     try:
-        user_to_add = User.objects.get(username=username)
+        user_to_add = User.objects.get(pk=user_id)
     except User.DoesNotExist:
         return Response(
             {"error": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
         )
 
+    if user_to_add in project.members.all():
+        return Response(
+            {
+                "message": f"User {user_to_add.username} is already member of project {project.name}"
+            }
+        )
+
     project.members.add(user_to_add)
     return Response(
-        {"message": f"User {username} added to project {project.name}"},
+        {"message": f"User {user_to_add.username} added to project {project.name}"},
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def remove_member_from_project(request, pk):
+    try:
+        project = Project.objects.get(pk=pk)
+    except Project.DoesNotExist:
+        return Response(
+            {"error": "No projects with matching id"}, status=status.HTTP_404_NOT_FOUND
+        )
+
+    if not (request.user.is_staff or request.user in project.members.all()):
+        return Response(
+            {"error": "You are not allowed to remove members"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    user_id = request.data.get("user_id", "")
+    if not user_id:
+        return Response(
+            {"error": "User ID is required"}, status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        user_to_remove = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        return Response(
+            {"error": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
+        )
+
+    project.members.remove(user_to_remove)
+    return Response(
+        {
+            "message": f"User {user_to_remove.username} was removed from  project {project.name}"
+        },
         status=status.HTTP_200_OK,
     )

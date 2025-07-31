@@ -41,6 +41,13 @@ class TaskViewSet(viewsets.ModelViewSet):
     serializer_class = TaskSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        user = self.request.user
+        queryset = Task.objects.select_related("project", "assigned_to")
+        if user.is_staff:
+            return queryset
+        return queryset.filter(project__members=user)
+
 
 class ProjectListCreateApiView(APIView):
     permission_classes = [IsAuthenticated]

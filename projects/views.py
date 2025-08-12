@@ -1,5 +1,6 @@
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from rest_framework.generics import CreateAPIView, DestroyAPIView, ListAPIView
 from rest_framework.views import APIView
@@ -51,13 +52,67 @@ class TaskViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         project = serializer.validated_data["project"]
         user = self.request.user
-        if not (user.is_staff or user in project.members.all()):
-            from rest_framework.exceptions import PermissionDenied
-
+        if not (user.is_staff or project.members.filter(id=user.id).exists()):
             raise PermissionDenied(
                 "You are not allowed to create tasks in this project"
             )
         serializer.save()
+
+    @action(detail=True, methods=["patch"], url_path="assign")
+    def assign(self, request, pk=None):
+        task = self.get_object()
+        user_id = request.data.get("assigned_to_id")
+        user = request.user
+
+        if not (user.is_staff or task.project.members.filter(id=user.id).exists()):
+            raise PermissionDenied(
+                "You are not allowed to assign tasks in this project"
+            )
+
+        if not user_id:
+            return Response(
+                {"error": "User ID is required"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            assignee = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"error": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        if not task.project.members.filter(id=assignee.id).exists():
+            return Response(
+                {"error": "User is not project member"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        data = {"assigned_to_id": assignee.id}
+        serializer = TaskSerializer(task, data=data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["patch"], url_path="set-status")
+    def set_status(self, request, pk=None):
+        task = self.get_object()
+        user = request.user
+
+        if not (user.is_staff or task.project.members.filter(id=user.id)):
+            raise PermissionDenied(
+                "You are not allowed to change task status in this project"
+            )
+
+        new_status = request.data.get("status")
+
+        if not new_status:
+            return Response(
+                {"error": "Status is required"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer = TaskSerializer(task, data={"status": new_status}, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class ProjectListCreateApiView(APIView):

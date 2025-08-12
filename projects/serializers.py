@@ -73,15 +73,11 @@ class ProjectSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "description", "created_at", "members", "tasks"]
 
     def create(self, validated_data):
-        members_data = validated_data.pop("members", [])
         request = self.context.get("request")
 
         project = Project.objects.create(**validated_data)
 
         if request and request.user.is_authenticated:
             project.members.add(request.user)
-
-        for member in members_data:
-            project.members.add(member)
 
         return project

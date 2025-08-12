@@ -23,5 +23,9 @@ urlpatterns = [
     path("projects/", ProjectListCreateApiView.as_view(), name="project-list-create"),
     path("projects/<int:pk>/", ProjectDetailApiView.as_view(), name="project-detail"),
     path("projects/<int:pk>/add-member/", add_user_to_project, name="add-member"),
-    path("projects/<int:pk>/remove-member/", remove_member_from_project, name="remove-member"),
+    path(
+        "projects/<int:pk>/remove-member/",
+        remove_member_from_project,
+        name="remove-member",
+    ),
 ]

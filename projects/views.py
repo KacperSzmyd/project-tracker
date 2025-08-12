@@ -48,6 +48,17 @@ class TaskViewSet(viewsets.ModelViewSet):
             return queryset
         return queryset.filter(project__members=user)
 
+    def perform_create(self, serializer):
+        project = serializer.validated_data["project"]
+        user = self.request.user
+        if not (user.is_staff or user in project.members.all()):
+            from rest_framework.exceptions import PermissionDenied
+
+            raise PermissionDenied(
+                "You are not allowed to create tasks in this project"
+            )
+        serializer.save()
+
 
 class ProjectListCreateApiView(APIView):
     permission_classes = [IsAuthenticated]

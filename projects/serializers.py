@@ -27,6 +27,15 @@ class UserRegisterSerializer(serializers.ModelSerializer):
 
 class TaskSerializer(serializers.ModelSerializer):
     assigned_to = UserSerializer(read_only=True)
+    assigned_to_id = serializers.PrimaryKeyRelatedField(
+        source="assigned_to",
+        queryset=User.objects.all(),
+        write_only=True,
+        required=False,
+    )
+    project_id = serializers.PrimaryKeyRelatedField(
+        source="project", queryset=Project.objects.all(), write_only=True, required=True
+    )
 
     class Meta:
         model = Task
@@ -38,7 +47,21 @@ class TaskSerializer(serializers.ModelSerializer):
             "due_date",
             "created_at",
             "assigned_to",
+            "assigned_to_id",
+            "project_id",
         ]
+
+    def validate(self, attrs):
+        project = attrs.get("project") or getattr(self.instance, "project", None)
+        assignee = attrs.get("assigned_to")
+
+        if assignee and project:
+            is_member = project.members.filter(id=assignee.id).exists()
+            if not is_member:
+                raise serializers.ValidationError(
+                    {"assigned_to_id": "Assignee must be a member of the project"}
+                )
+        return attrs
 
 
 class ProjectSerializer(serializers.ModelSerializer):

@@ -92,6 +92,46 @@ class TaskViewSet(viewsets.ModelViewSet):
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=["patch"], url_path="unassign")
+    def unassign(self, request, pk=None):
+        task = self.get_object()
+        user = request.user
+
+        if not (user.is_staff or task.project.members.filter(id=user.id).exists()):
+            raise PermissionDenied(
+                "You are not allowed to unassign task in this project"
+            )
+
+        if task.assigned_to_id is None:
+            return Response(
+                {"error": "Task is not assigned"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user_id = request.data.get("user_id")
+        if not user_id:
+            return Response(
+                {"error": "User ID is required"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            assignee_to_remove = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"error": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        if assignee_to_remove.id != task.assigned_to_id:
+            return Response(
+                {
+                    "error": f"{assignee_to_remove.username} is not current assignee to this task"
+                }
+            )
+
+        serializer = TaskSerializer(task, data={"assigned_to_id": None}, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
     @action(detail=True, methods=["patch"], url_path="set-status")
     def set_status(self, request, pk=None):
         task = self.get_object()

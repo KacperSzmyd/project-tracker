@@ -15,6 +15,7 @@ from .serializers import (
     UserSerializer,
 )
 from .permissions import IsProjectMember
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User
 from django_filters.rest_framework import DjangoFilterBackend
@@ -171,6 +172,20 @@ class ProjectListCreateApiView(APIView):
             projects = Project.objects.all()
         else:
             projects = Project.objects.filter(members=user)
+
+        member_id = request.query_params.get("member")
+        if member_id:
+            projects.filter(members__id=member_id)
+
+        search = request.query_params.get("search")
+        if search:
+            projects.filter(
+                Q(name__icontains=search) | Q(description__icontains=search)
+            )
+
+        ordering = request.query_params.get("ordering")
+        if ordering in ("name", "-name", "created_at", "-created_at"):
+            projects.order_by(ordering)
 
         projects = projects.prefetch_related("members", "tasks").distinct()
         serializer = ProjectSerializer(projects, many=True)

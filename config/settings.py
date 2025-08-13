@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "projects",
+    "drf_spectacular",
 ]
 
 MIDDLEWARE = [
@@ -137,4 +138,23 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 10,
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Project Tracker API",
+    "DESCRIPTION": "Django + DRF project for learning & portfolio. Projects, tasks, members, JWT.",
+    "VERSION": "0.1.0",
+    "SERVERS": [{"url": "http://127.0.0.1:8000", "description": "Local dev"}],
+    "COMPONENTS": {
+        "securitySchemes": {
+            "BearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+            }
+        }
+    },
+    "SECURITY": [{"BearerAuth": []}],
+    "COMPONENT_SPLIT_REQUEST": True,
 }

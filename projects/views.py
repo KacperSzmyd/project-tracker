@@ -5,8 +5,7 @@ from rest_framework.response import Response
 from rest_framework.generics import CreateAPIView, DestroyAPIView, ListAPIView
 from rest_framework.views import APIView
 from rest_framework.filters import OrderingFilter, SearchFilter
-from rest_framework import viewsets
-from rest_framework import status
+from rest_framework import viewsets, status, serializers
 from .models import Project, Task
 from .serializers import (
     ProjectSerializer,
@@ -19,7 +18,18 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema, OpenApiExample, OpenApiParameter
+from drf_spectacular.types import OpenApiTypes
 
+
+class AssignPayload(serializers.Serializer):
+    assigned_to_id = serializers.IntegerField()
+    
+class StatusPayload(serializers.Serializer):
+    status = serializers.CharField(choices=[c[0] for c in Task.STATUS_CHOICES])
+    
+class UserIdPayload(serializers.Serializer):
+    user_id = serializers.IntegerField()
 
 class UserRegisterView(CreateAPIView):
     queryset = User.objects.all()

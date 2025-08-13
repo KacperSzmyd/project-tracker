@@ -24,12 +24,15 @@ from drf_spectacular.types import OpenApiTypes
 
 class AssignPayload(serializers.Serializer):
     assigned_to_id = serializers.IntegerField()
-    
+
+
 class StatusPayload(serializers.Serializer):
     status = serializers.CharField(choices=[c[0] for c in Task.STATUS_CHOICES])
-    
+
+
 class UserIdPayload(serializers.Serializer):
     user_id = serializers.IntegerField()
+
 
 class UserRegisterView(CreateAPIView):
     queryset = User.objects.all()
@@ -76,6 +79,19 @@ class TaskViewSet(viewsets.ModelViewSet):
             )
         serializer.save()
 
+    @extend_schema(
+        request=AssignPayload,
+        responses=TaskSerializer,
+        description="Assign task to a project member by user_id.",
+        tags=["tasks"],
+        operation_id="task_assign",
+        examples=[
+            OpenApiExample(
+                "Assign Example",
+                value={"assigned_to_id": 3},
+            ),
+        ],
+    )
     @action(detail=True, methods=["patch"], url_path="assign")
     def assign(self, request, pk=None):
         task = self.get_object()
@@ -110,6 +126,13 @@ class TaskViewSet(viewsets.ModelViewSet):
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @extend_schema(
+        request=UserIdPayload,
+        responses=TaskSerializer,
+        description="Unassign current assignee (must match user_id).",
+        tags=["tasks"],
+        operation_id="task_unassign",
+    )
     @action(detail=True, methods=["patch"], url_path="unassign")
     def unassign(self, request, pk=None):
         task = self.get_object()
@@ -150,6 +173,14 @@ class TaskViewSet(viewsets.ModelViewSet):
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @extend_schema(
+        request=StatusPayload,
+        responses=TaskSerializer,
+        description="Change task status.",
+        tags=["tasks"],
+        operation_id="task_set_status",
+        examples=[OpenApiExample("Set to DONE", value={"status": "DONE"})],
+    )
     @action(detail=True, methods=["patch"], url_path="set-status")
     def set_status(self, request, pk=None):
         task = self.get_object()
@@ -176,6 +207,28 @@ class TaskViewSet(viewsets.ModelViewSet):
 class ProjectListCreateApiView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="search",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Search in project name or description.",
+            ),
+            OpenApiParameter(
+                name="member",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Search for projects by memmber_id",
+            ),
+            OpenApiParameter(
+                name="ordering",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Order by name or created_at (prefix with - for desc).",
+            ),
+        ]
+    )
     def get(self, request):
         user = request.user
         if user.is_staff:
@@ -185,17 +238,17 @@ class ProjectListCreateApiView(APIView):
 
         member_id = request.query_params.get("member")
         if member_id:
-            projects.filter(members__id=member_id)
+            projects = projects.filter(members__id=member_id)
 
         search = request.query_params.get("search")
         if search:
-            projects.filter(
+            projects = projects.filter(
                 Q(name__icontains=search) | Q(description__icontains=search)
             )
 
         ordering = request.query_params.get("ordering")
         if ordering in ("name", "-name", "created_at", "-created_at"):
-            projects.order_by(ordering)
+            projects = projects.order_by(ordering)
 
         projects = projects.prefetch_related("members", "tasks").distinct()
         serializer = ProjectSerializer(projects, many=True)
@@ -270,7 +323,7 @@ def add_user_to_project(request, pk):
             {"error": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
         )
 
-    if user_to_add in project.members.all():
+    if project.members.filter(id=user_to_add.id).exists():
         return Response(
             {
                 "message": f"User {user_to_add.username} is already member of project {project.name}"

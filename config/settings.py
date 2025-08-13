@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "projects",
     "drf_spectacular",
+    "django_filters",
 ]
 
 MIDDLEWARE = [

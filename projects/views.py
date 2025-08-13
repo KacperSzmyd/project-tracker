@@ -4,6 +4,7 @@ from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from rest_framework.generics import CreateAPIView, DestroyAPIView, ListAPIView
 from rest_framework.views import APIView
+from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework import viewsets
 from rest_framework import status
 from .models import Project, Task
@@ -16,6 +17,7 @@ from .serializers import (
 from .permissions import IsProjectMember
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User
+from django_filters.rest_framework import DjangoFilterBackend
 
 
 class UserRegisterView(CreateAPIView):
@@ -41,6 +43,11 @@ class TaskViewSet(viewsets.ModelViewSet):
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
     permission_classes = [IsAuthenticated]
+
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ["project", "status", "assigned_to"]
+    ordering_fields = ["due_date", "created_at", "title"]
+    search_fields = ["title", "description"]
 
     def get_queryset(self):
         user = self.request.user
@@ -137,7 +144,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         task = self.get_object()
         user = request.user
 
-        if not (user.is_staff or task.project.members.filter(id=user.id)):
+        if not (user.is_staff or task.project.members.filter(id=user.id).exists()):
             raise PermissionDenied(
                 "You are not allowed to change task status in this project"
             )
@@ -159,10 +166,11 @@ class ProjectListCreateApiView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if self.request.user.is_staff:
+        user = request.user
+        if user.is_staff:
             projects = Project.objects.all()
         else:
-            projects = Project.objects.filter(members=request.user)
+            projects = Project.objects.filter(members=user)
 
         projects = projects.prefetch_related("members", "tasks").distinct()
         serializer = ProjectSerializer(projects, many=True)
@@ -216,7 +224,9 @@ def add_user_to_project(request, pk):
             {"error": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND
         )
 
-    if not (request.user.is_staff or request.user in project.members.all()):
+    if not (
+        request.user.is_staff or project.members.filter(id=request.user.id).exists()
+    ):
         return Response(
             {"error": "You are not allowed to add members"},
             status=status.HTTP_403_FORBIDDEN,
@@ -239,7 +249,8 @@ def add_user_to_project(request, pk):
         return Response(
             {
                 "message": f"User {user_to_add.username} is already member of project {project.name}"
-            }
+            },
+            status=status.HTTP_409_CONFLICT,
         )
 
     project.members.add(user_to_add)
@@ -259,7 +270,9 @@ def remove_member_from_project(request, pk):
             {"error": "No projects with matching id"}, status=status.HTTP_404_NOT_FOUND
         )
 
-    if not (request.user.is_staff or request.user in project.members.all()):
+    if not (
+        request.user.is_staff or project.members.filter(id=request.user.id).exists()
+    ):
         return Response(
             {"error": "You are not allowed to remove members"},
             status=status.HTTP_403_FORBIDDEN,

@@ -27,7 +27,7 @@ class AssignPayload(serializers.Serializer):
 
 
 class StatusPayload(serializers.Serializer):
-    status = serializers.CharField(choices=[c[0] for c in Task.STATUS_CHOICES])
+    status = serializers.ChoiceField(choices=[c[0] for c in Task.STATUS_CHOICES])
 
 
 class UserIdPayload(serializers.Serializer):
@@ -41,7 +41,7 @@ class UserRegisterView(CreateAPIView):
 
 
 class UserListView(ListAPIView):
-    queryset = User.objects.all()
+    queryset = User.objects.all().order_by("id")
     permission_classes = [IsAdminUser]
     serializer_class = UserSerializer
 
@@ -165,7 +165,8 @@ class TaskViewSet(viewsets.ModelViewSet):
             return Response(
                 {
                     "error": f"{assignee_to_remove.username} is not current assignee to this task"
-                }
+                },
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         serializer = TaskSerializer(task, data={"assigned_to_id": None}, partial=True)

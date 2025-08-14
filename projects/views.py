@@ -95,7 +95,7 @@ class TaskViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["patch"], url_path="assign")
     def assign(self, request, pk=None):
         task = self.get_object()
-        user_id = request.data.get("assigned_to_id")
+        user_id = request.data.get("user_id")
         user = request.user
 
         if not (user.is_staff or task.project.members.filter(id=user.id).exists()):

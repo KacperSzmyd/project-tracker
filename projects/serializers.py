@@ -32,6 +32,7 @@ class TaskSerializer(serializers.ModelSerializer):
         queryset=User.objects.all(),
         write_only=True,
         required=False,
+        allow_null=True,
     )
     project_id = serializers.PrimaryKeyRelatedField(
         source="project", queryset=Project.objects.all(), write_only=True, required=True

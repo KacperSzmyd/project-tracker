@@ -29,9 +29,16 @@ def staff(db):
 
 
 @pytest.fixture
-def auth_client(user):
+def auth_client_for_user(user):
     authenticated_client = APIClient()
     authenticated_client.force_authenticate(user=user)
+    return authenticated_client
+
+
+@pytest.fixture
+def auth_client_for_user2(user2):
+    authenticated_client = APIClient()
+    authenticated_client.force_authenticate(user=user2)
     return authenticated_client
 
 
@@ -50,9 +57,11 @@ def project(db, user):
 
 
 @pytest.fixture
-def project_with_two_members(project, user2):
-    project.members.add(user2)
-    return project
+def project_with_two_members(project, user, user2):
+    p = Project.objects.create(name="Beta", description="Project with two members")
+    p.members.add(user)
+    p.members.add(user2)
+    return p
 
 
 @pytest.fixture

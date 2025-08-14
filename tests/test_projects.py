@@ -66,3 +66,25 @@ def test_add_remove_member(auth_client_for_user, project, user2):
     )
     assert resp3.status_code == 200
 
+
+def test_projects_filters_search_ordering(
+    staff_client, project, project_with_two_members
+):
+    url = reverse("project-list-create")
+
+    # search
+    resp1 = staff_client.get(url, {"search": "Alpha"})
+    assert all(
+        "Alpha" in p["name"] or "Alpha" in (p.get("description") or "")
+        for p in resp1.json()
+    )
+
+    # member filter
+    member_id = project.members.first().id
+    resp2 = staff_client.get(url, {"member": member_id})
+    assert all(any(m["id"] == member_id for m in p["members"]) for p in resp2.json())
+
+    # ordering
+    resp3 = staff_client.get(url, {"ordering": "-created_at"})
+    body = resp3.json()
+    assert [p["id"] for p in body] == sorted([p["id"] for p in body], reverse=True)

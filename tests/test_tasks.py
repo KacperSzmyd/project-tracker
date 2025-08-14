@@ -2,7 +2,7 @@ from django.urls import reverse
 
 
 def test_create_only_member_can_create_tasks(
-    auth_client_for_user, auth_client_for_user2, project
+    auth_client_for_user, auth_client_for_user2, project, user2
 ):
     url = reverse("task-list")
     payload = {"title": "New", "project_id": project.id}
@@ -14,6 +14,14 @@ def test_create_only_member_can_create_tasks(
     # not member
     resp2 = auth_client_for_user2.post(url, payload, format="json")
     assert resp2.status_code == 403
+
+    # member creates task assigned to not member
+    resp3 = auth_client_for_user.post(
+        url,
+        {"title": "X", "project_id": project.id, "assigned_to_id": user2.id},
+        format="json",
+    )
+    assert resp3.status_code == 400
 
 
 def test_assign_unassign_task_actions(task, auth_client_for_user, user, user2):

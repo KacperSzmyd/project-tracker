@@ -57,7 +57,7 @@ def project(db, user):
 
 
 @pytest.fixture
-def project_with_two_members(project, user, user2):
+def project_with_two_members(user, user2):
     p = Project.objects.create(name="Beta", description="Project with two members")
     p.members.add(user)
     p.members.add(user2)
